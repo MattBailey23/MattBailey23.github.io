@@ -1,40 +1,75 @@
-var weatherContainer;
-var btn;
-var password;
+ var GoogleAuth;
+  var SCOPE = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+  function handleClientLoad() {
+    // Load the API's client and auth2 modules.
+    // Call the initClient function after the modules load.
+    gapi.load('client:auth2', initClient);
+  }
 
-function initialize(){
-	weatherContainer = document.getElementById("weatherContainer");
-	btn = document.getElementById("btn");
-	btn.addEventListener('click', fetchData);
-}
+  function initClient() {
+    // Retrieve the discovery document for version 3 of Google Drive API.
+    // In practice, your app can retrieve one or more discovery documents.
+    var discoveryUrl = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 
-/*function renderHTML(data){
-	
-	for (var i = 0; i < data.length; i++){
-		console.log(data[i].clouds);
-		var node = document.createElement("p");
-		var textnode = document.createTextNode(data[i].weather.main);
-		node.appendChild(textnode);
-		weatherContainer.appendChild(node);
-		
-	}
-}*/
+    // Initialize the gapi.client object, which app uses to make API requests.
+    // Get API key and client ID from API Console.
+    // 'scope' field specifies space-delimited list of access scopes.
+    gapi.client.init({
+        'apiKey': 'YOUR_API_KEY',
+        'discoveryDocs': [discoveryUrl],
+        'clientId': 'YOUR_CLIENT_ID',
+        'scope': SCOPE
+    }).then(function () {
+      GoogleAuth = gapi.auth2.getAuthInstance();
 
-function fetchData(){
-	console.log('123');
-	var username = '';
-	var password = '';
-	
-	var request = new XMLHttpRequest();
-	request.open('GET', 'https://telematics-e2e.visualsutdio.com/DefaultCollection/Telematics-E2E-Program/_apis/wit/queries/2feca7d1-ebbe-48ff-b64f-3aad4dcf0d43');
-	request.withCredentials = true;
-	request.setRequestHeader("Authorization", "Basic " + window.btoa(username + ":" + password));
-	request.onload = function(){
-		var queryData = JSON.parse(request.responseText);
-		console.log(queryData);
-		//renderHTML(queryData);
-		};
-	request.send();
-}
-//https://telematics-e2e.visualstudio.com/Telematics-E2E-Program/_queries?id=a2108d31-086c-4fb0-afda-097e4cc46df4&_a=query
-//https://telematics-e2e.visualsutdio.com/DefaultCollection/Telematics-E2E-Program/_apis/wit/queries/75b3b70c-7b40-48d0-b677-42a05ad120d6?api-version=1.0
+      // Listen for sign-in state changes.
+      GoogleAuth.isSignedIn.listen(updateSigninStatus);
+
+      // Handle initial sign-in state. (Determine if user is already signed in.)
+      var user = GoogleAuth.currentUser.get();
+      setSigninStatus();
+
+      // Call handleAuthClick function when user clicks on
+      //      "Sign In/Authorize" button.
+      $('#sign-in-or-out-button').click(function() {
+        handleAuthClick();
+      }); 
+      $('#revoke-access-button').click(function() {
+        revokeAccess();
+      }); 
+    });
+  }
+
+  function handleAuthClick() {
+    if (GoogleAuth.isSignedIn.get()) {
+      // User is authorized and has clicked 'Sign out' button.
+      GoogleAuth.signOut();
+    } else {
+      // User is not signed in. Start Google auth flow.
+      GoogleAuth.signIn();
+    }
+  }
+
+  function revokeAccess() {
+    GoogleAuth.disconnect();
+  }
+
+  function setSigninStatus(isSignedIn) {
+    var user = GoogleAuth.currentUser.get();
+    var isAuthorized = user.hasGrantedScopes(SCOPE);
+    if (isAuthorized) {
+      $('#sign-in-or-out-button').html('Sign out');
+      $('#revoke-access-button').css('display', 'inline-block');
+      $('#auth-status').html('You are currently signed in and have granted ' +
+          'access to this app.');
+    } else {
+      $('#sign-in-or-out-button').html('Sign In/Authorize');
+      $('#revoke-access-button').css('display', 'none');
+      $('#auth-status').html('You have not authorized this app or you are ' +
+          'signed out.');
+    }
+  }
+
+  function updateSigninStatus(isSignedIn) {
+    setSigninStatus();
+  }
